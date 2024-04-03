@@ -1,0 +1,4 @@
+[rabbit_mq]
+url = "amqp://127.0.0.1:5672/%2f"
+listen_queue = "queue"
+consumer_tag = "consumer_tag"
