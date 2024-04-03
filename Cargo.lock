@@ -72,31 +72,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "amqp_serde"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "787581044ca08ad61cdb3a4e21afba087fb8cdba3bb3e23ce69a7d091808014d"
-dependencies = [
- "bytes",
- "serde",
- "serde_bytes_ng",
-]
-
-[[package]]
-name = "amqprs"
-version = "1.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b4f52cae99687a0375b253a435bdcdd09edb8e56e1e3a8758b165092fc387ec"
-dependencies = [
- "amqp_serde",
- "async-trait",
- "bytes",
- "serde",
- "serde_bytes_ng",
- "tokio",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -584,8 +559,6 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 name = "drive-lab-processer"
 version = "0.1.0"
 dependencies = [
- "amqprs",
- "async-global-executor",
  "futures-lite 2.3.0",
  "image",
  "lapin",
@@ -1866,15 +1839,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fb1c873e1b9b056a4dc4c0c198b24c3ffa059243875552b2bd0933b1aee4ce2"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde_bytes_ng"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdb0ebce8684e2253f964e8b6ce51f0ccc6666bbb448fb4a6788088bda6544b6"
-dependencies = [
- "serde",
 ]
 
 [[package]]

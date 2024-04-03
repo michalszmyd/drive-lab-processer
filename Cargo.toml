@@ -6,8 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-amqprs = "1.5.4"
-async-global-executor = "2.4.1"
 futures-lite = "2.3.0"
 image = "0.25.1"
 lapin = "2.3.1"
