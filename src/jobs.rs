@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Result, Value};
 use tracing::info;
 
-use crate::operations::file_to_text;
+use crate::{config::AppConfig, operations::file_to_text};
 
 pub async fn resolve_routing(routing_key: &str, payload: &Vec<u8>, publish_channel: &Channel) {
     let captured_data = String::from_utf8_lossy(payload);
@@ -30,6 +30,8 @@ struct FileToTextResult {
 }
 
 async fn file_to_text_job(raw_payload: &str, publish_channel: &Channel) -> bool {
+    let app_config = AppConfig::new();
+
     let parsed_data_result: Result<FileToText> = serde_json::from_str(raw_payload);
 
     match parsed_data_result {
@@ -46,8 +48,8 @@ async fn file_to_text_job(raw_payload: &str, publish_channel: &Channel) -> bool 
 
             let confirm = publish_channel
                 .basic_publish(
-                    "drive_lab.exchange",
-                    "file_text_data",
+                    &app_config.file_to_text_job.publisher_exchange,
+                    &app_config.file_to_text_job.publisher_routing_key,
                     BasicPublishOptions::default(),
                     payload.as_bytes(),
                     BasicProperties::default(),

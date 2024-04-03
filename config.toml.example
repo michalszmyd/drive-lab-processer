@@ -2,3 +2,7 @@
 url = "amqp://127.0.0.1:5672/%2f"
 listen_queue = "queue"
 consumer_tag = "consumer_tag"
+
+[file_to_text_job]
+publisher_exchange = "drive_lab.exchange"
+publisher_routing_key = "file_text_data"

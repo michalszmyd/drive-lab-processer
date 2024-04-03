@@ -8,6 +8,13 @@ const CONFIG_FILE_PATH: &str = "./config.toml";
 #[derive(Deserialize)]
 struct ConfigToml {
     rabbit_mq: Option<ConfigTomlRabbitMQ>,
+    file_to_text_job: Option<ConfigTomlFileToTextJob>,
+}
+
+#[derive(Deserialize)]
+struct ConfigTomlFileToTextJob {
+    publisher_exchange: Option<String>,
+    publisher_routing_key: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -20,6 +27,13 @@ struct ConfigTomlRabbitMQ {
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     pub rabbit_mq: RabbitMQConfig,
+    pub file_to_text_job: FileToTextJobConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct FileToTextJobConfig {
+    pub publisher_exchange: String,
+    pub publisher_routing_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +52,10 @@ impl AppConfig {
                 url: None,
                 listen_queue: None,
                 consumer_tag: None,
+            }),
+            file_to_text_job: Some(ConfigTomlFileToTextJob {
+                publisher_exchange: None,
+                publisher_routing_key: None,
             }),
         }
     }
@@ -64,9 +82,19 @@ impl AppConfig {
                     consumer_tag: config.consumer_tag.unwrap_or("".to_string()),
                 },
                 None => RabbitMQConfig {
-                    url: "".to_owned(),
-                    listen_queue: "".to_owned(),
-                    consumer_tag: "".to_owned(),
+                    url: "".to_string(),
+                    listen_queue: "".to_string(),
+                    consumer_tag: "".to_string(),
+                },
+            },
+            file_to_text_job: match config_toml.file_to_text_job {
+                Some(config) => FileToTextJobConfig {
+                    publisher_exchange: config.publisher_exchange.unwrap_or("".to_string()),
+                    publisher_routing_key: config.publisher_routing_key.unwrap_or("".to_string()),
+                },
+                None => FileToTextJobConfig {
+                    publisher_exchange: "".to_string(),
+                    publisher_routing_key: "".to_string(),
                 },
             },
         }
