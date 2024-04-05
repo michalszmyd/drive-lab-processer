@@ -20,7 +20,7 @@ async fn main() {
 
     let app_config = AppConfig::new();
 
-    dbg!(&app_config);
+    info!("{:?}", &app_config);
 
     let addr = app_config.rabbit_mq.url;
     let conn = Connection::connect(&addr, ConnectionProperties::default())
@@ -48,7 +48,7 @@ async fn consumer(conn: &Connection) -> Result<()> {
 
     loop {
         info!(
-            "RabbitMQ Listneing to {}",
+            "RabbitMQ Listening to {}",
             app_config.rabbit_mq.listen_queue
         );
 
@@ -56,23 +56,36 @@ async fn consumer(conn: &Connection) -> Result<()> {
             let publish_channel_spawn = publish_channel.clone();
 
             tokio::spawn(async move {
-                info!("Received message, parsing");
-
                 let delivery = delivery.expect("error in consumer");
 
                 info!(
-                    "Received Routing key: {}, exchange: {},",
+                    "Received Routing key: {}, exchange: {}",
                     delivery.routing_key, delivery.exchange,
                 );
 
-                resolve_routing(
+                let job = resolve_routing(
                     &delivery.routing_key.as_str(),
                     &delivery.data,
                     &publish_channel_spawn,
                 )
                 .await;
 
-                delivery.ack(BasicAckOptions::default()).await.expect("ack");
+                match job {
+                    Ok(resolved) => {
+                        if resolved {
+                            delivery.ack(BasicAckOptions::default()).await.expect("ack");
+
+                            return;
+                        } else {
+                            info!("Error while performing Job {}", delivery.routing_key)
+                        }
+                    }
+                    Err(msg) => {
+                        info!("Error: {:?}", &msg);
+
+                        return;
+                    }
+                };
             });
         }
 

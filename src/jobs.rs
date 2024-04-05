@@ -1,25 +1,34 @@
 use lapin::{options::BasicPublishOptions, BasicProperties, Channel};
 use serde::{Deserialize, Serialize};
-use serde_json::{Result, Value};
+use serde_json::Value;
 use tracing::info;
 
-use crate::{config::AppConfig, operations::file_to_text};
+use crate::{
+    config::AppConfig,
+    operations::{file_to_text, FileToTextError},
+};
 
-pub async fn resolve_routing(routing_key: &str, payload: &Vec<u8>, publish_channel: &Channel) {
+pub async fn resolve_routing(
+    routing_key: &str,
+    payload: &Vec<u8>,
+    publish_channel: &Channel,
+) -> Result<bool, JobError> {
     let captured_data = String::from_utf8_lossy(payload);
+
+    info!("Performing with {:?}", &captured_data);
 
     match routing_key {
         "file_to_text" => file_to_text_job(&captured_data, publish_channel).await,
         _ => {
             info!("Incorrect routing key {}", routing_key);
-            false
+            Ok(false)
         }
-    };
+    }
 }
 
 #[derive(Serialize, Deserialize)]
 struct FileToText {
-    artifact_path: String,
+    file_url: String,
     extras: Value,
 }
 
@@ -29,43 +38,40 @@ struct FileToTextResult {
     text: String,
 }
 
-async fn file_to_text_job(raw_payload: &str, publish_channel: &Channel) -> bool {
+#[derive(Debug, derive_more::From)]
+pub enum JobError {
+    JSONError(serde_json::Error),
+    FileToTextError(FileToTextError),
+}
+
+async fn file_to_text_job(raw_payload: &str, publish_channel: &Channel) -> Result<bool, JobError> {
     let app_config = AppConfig::new();
 
-    let parsed_data_result: Result<FileToText> = serde_json::from_str(raw_payload);
+    let parsed_data: FileToText = serde_json::from_str(raw_payload)?;
 
-    match parsed_data_result {
-        Ok(data) => {
-            let output = file_to_text(&data.artifact_path);
-            let result_data = FileToTextResult {
-                text: output,
-                extras: data.extras,
-            };
+    let output = file_to_text(&parsed_data.file_url).await?;
 
-            let payload = serde_json::to_string(&result_data).unwrap();
+    let result_data = FileToTextResult {
+        text: output,
+        extras: parsed_data.extras,
+    };
 
-            dbg!(&payload);
+    let payload = serde_json::to_string(&result_data).unwrap();
 
-            let confirm = publish_channel
-                .basic_publish(
-                    &app_config.file_to_text_job.publisher_exchange,
-                    &app_config.file_to_text_job.publisher_routing_key,
-                    BasicPublishOptions::default(),
-                    payload.as_bytes(),
-                    BasicProperties::default(),
-                )
-                .await
-                .unwrap()
-                .await
-                .unwrap();
+    let confirm = publish_channel
+        .basic_publish(
+            &app_config.file_to_text_job.publisher_exchange,
+            &app_config.file_to_text_job.publisher_routing_key,
+            BasicPublishOptions::default(),
+            payload.as_bytes(),
+            BasicProperties::default(),
+        )
+        .await
+        .unwrap()
+        .await
+        .unwrap();
 
-            dbg!(confirm);
+    info!("Confirmed: {:?}", confirm);
 
-            true
-        }
-        Err(_) => {
-            dbg!("Incorrect params");
-            false
-        }
-    }
+    Ok(true)
 }
