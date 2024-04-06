@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-global-executor = { version = "2.4.1", features = ["tokio"] }
 derive_more = "0.99.17"
 futures-lite = "2.3.0"
 image = "0.25.1"
@@ -14,8 +15,12 @@ reqwest = "0.12.2"
 rusty-tesseract = "1.1.10"
 serde = "1.0.197"
 serde_json = "1.0.115"
+tikv-jemallocator = "0.5.4"
 tokio = { version = "1.37.0", features = ["full"] }
 toml = "0.8.12"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 url = "2.5.0"
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0.5"

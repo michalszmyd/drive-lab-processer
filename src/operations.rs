@@ -1,7 +1,6 @@
 use image::{imageops::FilterType::Triangle, ImageError};
 use rusty_tesseract::{Args, Image};
 use std::{collections::HashMap, ffi::OsStr, path::Path};
-use tracing::info;
 use url::{ParseError, Url};
 const UPLOAD_DIR: &str = "./tmp";
 
@@ -51,13 +50,11 @@ pub async fn file_to_text(file_url: &str) -> Result<String, FileToTextError> {
         .adjust_contrast(1000.)
         .resize(1200, 1200, Triangle);
 
-    dynamic_image.save(sample_path).unwrap();
+    dynamic_image.save(&sample_path).unwrap();
 
     let img = Image::from_dynamic_image(&dynamic_image).unwrap();
 
     let output = rusty_tesseract::image_to_string(&img, &default_ocr_args()).unwrap();
-
-    info!("Read: {}", &output);
 
     Ok(output)
 }
