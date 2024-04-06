@@ -27,15 +27,15 @@ pub async fn resolve_routing(
 }
 
 #[derive(Serialize, Deserialize)]
-struct FileToText {
-    file_url: String,
+struct FileToText<'a> {
+    file_url: &'a str,
     extras: Value,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct FileToTextResult {
+struct FileToTextResult<'a> {
     extras: Value,
-    text: String,
+    text: &'a str,
 }
 
 #[derive(Debug, derive_more::From)]
@@ -52,7 +52,7 @@ async fn file_to_text_job(raw_payload: &str, publish_channel: &Channel) -> Resul
     let output = file_to_text(&parsed_data.file_url).await?;
 
     let result_data = FileToTextResult {
-        text: output,
+        text: &output,
         extras: parsed_data.extras,
     };
 
@@ -63,7 +63,7 @@ async fn file_to_text_job(raw_payload: &str, publish_channel: &Channel) -> Resul
             &app_config.file_to_text_job.publisher_exchange,
             &app_config.file_to_text_job.publisher_routing_key,
             BasicPublishOptions::default(),
-            payload.as_bytes(),
+            &payload.as_bytes(),
             BasicProperties::default(),
         )
         .await

@@ -1,7 +1,6 @@
 use config::AppConfig;
 use futures_lite::stream::StreamExt;
-use lapin::{options::*, types::FieldTable, Connection, ConnectionProperties, Result};
-use tokio::time;
+use lapin::{options::*, types::FieldTable, Connection, ConnectionProperties};
 use tracing::info;
 
 use crate::jobs::resolve_routing;
@@ -10,7 +9,7 @@ mod config;
 mod jobs;
 mod operations;
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info");
@@ -22,16 +21,10 @@ async fn main() {
 
     info!("{:?}", &app_config);
 
-    let addr = app_config.rabbit_mq.url;
-    let conn = Connection::connect(&addr, ConnectionProperties::default())
+    let conn = Connection::connect(&app_config.rabbit_mq.url, ConnectionProperties::default())
         .await
         .unwrap();
 
-    let _ = consumer(&conn).await;
-}
-
-async fn consumer(conn: &Connection) -> Result<()> {
-    let app_config = AppConfig::new();
     let channel = conn.create_channel().await.unwrap();
 
     let mut consumer = channel
@@ -44,51 +37,47 @@ async fn consumer(conn: &Connection) -> Result<()> {
         .await
         .unwrap();
 
-    let publish_channel = conn.create_channel().await.unwrap();
+    info!(
+        "RabbitMQ Listening to {}",
+        app_config.rabbit_mq.listen_queue
+    );
 
-    loop {
-        info!(
-            "RabbitMQ Listening to {}",
-            app_config.rabbit_mq.listen_queue
-        );
+    while let Some(delivery) = consumer.next().await {
+        let publish_channel_spawn = conn.create_channel().await.unwrap();
+        let _ = tokio::spawn(async move {
+            let delivery = delivery.expect("error in consumer");
 
-        while let Some(delivery) = consumer.next().await {
-            let publish_channel_spawn = publish_channel.clone();
+            info!(
+                "Received Routing key: {}, exchange: {}",
+                &delivery.routing_key, &delivery.exchange,
+            );
 
-            tokio::spawn(async move {
-                let delivery = delivery.expect("error in consumer");
+            let job = resolve_routing(
+                &delivery.routing_key.as_str(),
+                &delivery.data,
+                &publish_channel_spawn,
+            )
+            .await;
 
-                info!(
-                    "Received Routing key: {}, exchange: {}",
-                    delivery.routing_key, delivery.exchange,
-                );
+            let _ = &publish_channel_spawn.close(200, "ok").await;
 
-                let job = resolve_routing(
-                    &delivery.routing_key.as_str(),
-                    &delivery.data,
-                    &publish_channel_spawn,
-                )
-                .await;
-
-                match job {
-                    Ok(resolved) => {
-                        if resolved {
-                            delivery.ack(BasicAckOptions::default()).await.expect("ack");
-
-                            return;
-                        } else {
-                            info!("Error while performing Job {}", delivery.routing_key)
-                        }
-                    }
-                    Err(msg) => {
-                        info!("Error: {:?}", &msg);
+            match job {
+                Ok(resolved) => {
+                    if resolved {
+                        let _ = &delivery.ack(BasicAckOptions::default()).await.expect("ack");
 
                         return;
+                    } else {
+                        info!("Error while performing Job {}", &delivery.routing_key)
                     }
-                };
-            });
-        }
+                }
+                Err(msg) => {
+                    info!("Error: {:?}", &msg);
 
-        time::sleep(time::Duration::from_secs(1)).await;
+                    return;
+                }
+            };
+        })
+        .await;
     }
 }
